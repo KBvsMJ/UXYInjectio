@@ -2,7 +2,7 @@
 UXYInjectio can use Protocol to share data that data has been autosaved.
 
 ## How To Use
-1. creat a Protocol (inherit UXYinjectioProtocol), define the property in that Protocol
+1. create a Protocol (inherit UXYinjectioProtocol), define the property in that Protocol
 2. let the class support Protocol
 3. call method sharedWithSuiteName to bind a suite name
 4. this data is autosaved
