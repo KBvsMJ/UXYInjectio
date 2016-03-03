@@ -57,14 +57,14 @@
 
 id uxyForwardingTargetForSelectorMethodIMP(id self, SEL _cmd, SEL aSelector)
 {
-    id injectio = [UXYInjectioHelper sharedInstance].injectioDictionary[[self uxySuiteName]];
+    id injectio = UXYInjectioHelper.sharedInstance.injectioDictionary[((NSObject *)self).uxySuiteName];
     
-    return injectio ? ({ [[ UXYInjectioHelper sharedInstance] setCurrentObject:self]; injectio; }) :
+    return injectio ? ({ UXYInjectioHelper.sharedInstance.currentObject = self; injectio; }) :
     ({
         NSMethodSignature *sig = [[self class] instanceMethodSignatureForSelector:@selector(uxyForwardingTargetForSelectorMethodIMP:)];
         NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:sig];
-        [invocation setTarget:self];
-        [invocation setSelector:@selector(uxyForwardingTargetForSelectorMethodIMP:)];
+        invocation.target        = self;
+        invocation.selector      = @selector(uxyForwardingTargetForSelectorMethodIMP:);
         [invocation setArgument:&aSelector atIndex:2];
         [invocation invoke];
         id returnValue;
@@ -81,12 +81,12 @@ id uxyForwardingTargetForSelectorMethodIMP(id self, SEL _cmd, SEL aSelector)
 - (void)bindInjectioWithSuiteName:(NSString *)name
 {
     self.uxySuiteName = name;
-    [[UXYInjectioHelper sharedInstance] setupInjectioWithInstance:self withSuiteName:name];
+    [UXYInjectioHelper.sharedInstance setupInjectioWithInstance:self withSuiteName:name];
 }
 
 -(BOOL)immediatelySaveInjectio
 {
-    return [[UXYInjectioHelper sharedInstance].injectioDictionary[self.uxySuiteName] synchronize];
+    return ((NSUserDefaults *)(UXYInjectioHelper.sharedInstance.injectioDictionary[self.uxySuiteName])).synchronize;
 }
 - (NSString *)uxySuiteName
 {
@@ -100,14 +100,14 @@ id uxyForwardingTargetForSelectorMethodIMP(id self, SEL _cmd, SEL aSelector)
 - (NSString *)uxyInjectioProtocol
 {
     return objc_getAssociatedObject(self, UXYInjectio_associatedInjectioProtocol) ?:
-    ({ NSMutableString *mString = [@"" mutableCopy];
+    ({ NSMutableString *mString = @"".mutableCopy;
         uint protocolCount = 0;
         __unsafe_unretained Protocol **protocolArray = class_copyProtocolList([self class], &protocolCount);
         for (int i = 0; i < protocolCount; i++)
         {
             protocol_conformsToProtocol(protocolArray[i], @protocol(UXYinjectioProtocol)) ? [mString appendFormat:@"_%@", [NSString stringWithCString:protocol_getName(protocolArray[i]) encoding:4]] : nil;
         }
-        NSString *key = [mString copy];
+        NSString *key = mString.copy;
         objc_setAssociatedObject(self, UXYInjectio_associatedInjectioProtocol, key, OBJC_ASSOCIATION_COPY_NONATOMIC);
         key;
     });
@@ -124,9 +124,9 @@ id uxyForwardingTargetForSelectorMethodIMP(id self, SEL _cmd, SEL aSelector)
 {
     self = [super init];
     if (self) {
-        _injectioDictionary = [@{} mutableCopy];
-        _propertyTypeInfo   = [@{} mutableCopy];
-        _swizzledClass      = [NSMutableSet set];
+        _injectioDictionary = @{}.mutableCopy;
+        _propertyTypeInfo   = @{}.mutableCopy;
+        _swizzledClass      = NSMutableSet.set;
         [self registerNotification];
     }
     return self;
@@ -156,12 +156,12 @@ id uxyForwardingTargetForSelectorMethodIMP(id self, SEL _cmd, SEL aSelector)
 }
 - (void)setCurrentObject:(id)anObject
 {
-    [[NSThread currentThread] threadDictionary][UXYInjectio_associatedCurrentObject] = anObject;
+    NSThread.currentThread.threadDictionary[UXYInjectio_associatedCurrentObject] = anObject;
 }
 
 - (id)currentObject
 {
-    return [[NSThread currentThread] threadDictionary][UXYInjectio_associatedCurrentObject];
+    return NSThread.currentThread.threadDictionary[UXYInjectio_associatedCurrentObject];
 }
 #pragma mark - private
 - (void)registerNotification
@@ -172,7 +172,7 @@ id uxyForwardingTargetForSelectorMethodIMP(id self, SEL _cmd, SEL aSelector)
 
 - (void)saveUserDefaults
 {
-    UIApplication *application = [UIApplication sharedApplication];
+    UIApplication *application = UIApplication.sharedApplication;
     __block UIBackgroundTaskIdentifier bgTask = [application beginBackgroundTaskWithExpirationHandler:^{
         [application endBackgroundTask:bgTask];
         bgTask = UIBackgroundTaskInvalid;
@@ -207,47 +207,45 @@ id uxyForwardingTargetForSelectorMethodIMP(id self, SEL _cmd, SEL aSelector)
 
 - (void)hookForwardingSelectorWithClass:(Class)clazz
 {
-    if (![clazz instancesRespondToSelector:@selector(uxyForwardingTargetForSelectorMethodIMP:)])
-    {
-        Method a = class_getInstanceMethod(clazz, @selector(forwardingTargetForSelector:));
-        
-        class_addMethod(clazz, @selector(uxyForwardingTargetForSelectorMethodIMP:), (IMP)uxyForwardingTargetForSelectorMethodIMP, "@@::");
-        class_addMethod(clazz, @selector(forwardingTargetForSelector:), (IMP)uxyForwardingTargetForSelectorMethodIMP, "@@::");
-        class_replaceMethod(clazz, @selector(uxyForwardingTargetForSelectorMethodIMP:), method_getImplementation(a), method_getTypeEncoding(a));
-    }
+    if ([clazz instancesRespondToSelector:@selector(uxyForwardingTargetForSelectorMethodIMP:)])
+        return;
+    
+    Method a = class_getInstanceMethod(clazz, @selector(forwardingTargetForSelector:));
+    
+    class_addMethod(clazz, @selector(uxyForwardingTargetForSelectorMethodIMP:), (IMP)uxyForwardingTargetForSelectorMethodIMP, "@@::");
+    class_addMethod(clazz, @selector(forwardingTargetForSelector:), (IMP)uxyForwardingTargetForSelectorMethodIMP, "@@::");
+    class_replaceMethod(clazz, @selector(uxyForwardingTargetForSelectorMethodIMP:), method_getImplementation(a), method_getTypeEncoding(a));
 }
 
 - (void)buildProtocolPropertyTypeNameInfoWithInstance:(NSObject *)instance
 {
     if (_propertyTypeInfo[instance.uxyInjectioProtocol])
-    {
         return;
-    }
     
     NSMutableDictionary *mdic = [@{} mutableCopy];
     uint protocolCount        = 0;
     __unsafe_unretained Protocol **protocolArray = class_copyProtocolList([instance class], &protocolCount);
     for (int i = 0; i < protocolCount; i++)
     {
-        if (protocol_conformsToProtocol(protocolArray[i], @protocol(UXYinjectioProtocol)))
+        if (!protocol_conformsToProtocol(protocolArray[i], @protocol(UXYinjectioProtocol)))
+            continue;
+        
+        uint propertyCount = 0;
+        objc_property_t *properties = protocol_copyPropertyList(protocolArray[i], &propertyCount);
+        for (int j = 0; j < propertyCount; j++)
         {
-            uint propertyCount = 0;
-            objc_property_t *properties = protocol_copyPropertyList(protocolArray[i], &propertyCount);
-            for (int j = 0; j < propertyCount; j++)
-            {
-                objc_property_t property   = properties[j];
-                NSString *propertyName     = [NSString stringWithCString:property_getName(property) encoding:4].lowercaseString;
-                NSString *propertyTypeName = [self typeNameWithProperty:property];
-                if (propertyTypeName)
-                {
-                    mdic[propertyName] = propertyTypeName;
-                }
-            }
-            free(properties);
+            objc_property_t property   = properties[j];
+            NSString *propertyName     = [NSString stringWithCString:property_getName(property) encoding:4].lowercaseString;
+            NSString *propertyTypeName = [self typeNameWithProperty:property];
+            if (propertyTypeName.length == 0)
+                continue;
+            
+            mdic[propertyName] = propertyTypeName;
         }
+        free(properties);
     }
     
-    _propertyTypeInfo[instance.uxyInjectioProtocol] = [mdic copy];
+    _propertyTypeInfo[instance.uxyInjectioProtocol] = mdic.copy;
 }
 
 - (NSString *)typeNameWithProperty:(objc_property_t)property
@@ -329,7 +327,7 @@ id uxyForwardingTargetForSelectorMethodIMP(id self, SEL _cmd, SEL aSelector)
     self = [super init];
     if (self)
     {
-        _uxyInnerData = [NSUserDefaults standardUserDefaults];
+        _uxyInnerData = NSUserDefaults.standardUserDefaults;
     }
     return self;
 }
@@ -339,11 +337,11 @@ id uxyForwardingTargetForSelectorMethodIMP(id self, SEL _cmd, SEL aSelector)
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {
     NSString *propertyName;
-    NSString *typeKey = [[[UXYInjectioHelper sharedInstance] currentObject] uxyInjectioProtocol];
+    NSString *typeKey = ((NSObject *)UXYInjectioHelper.sharedInstance.currentObject).uxyInjectioProtocol;
     if ( ({ propertyName = [self setterNameFromSelector:aSelector]; propertyName; }) )
     {
-        NSString *className = [UXYInjectioHelper sharedInstance].propertyTypeInfo[typeKey][propertyName];
-        NSString *replaceName = [UXYInjectioHelper sharedInstance].setterSelectorMap[className];
+        NSString *className   = UXYInjectioHelper.sharedInstance.propertyTypeInfo[typeKey][propertyName];
+        NSString *replaceName = UXYInjectioHelper.sharedInstance.setterSelectorMap[className];
         SEL replaceSelector   = NSSelectorFromString(replaceName);
         
         return [_uxyInnerData methodSignatureForSelector:replaceSelector];
@@ -351,8 +349,8 @@ id uxyForwardingTargetForSelectorMethodIMP(id self, SEL _cmd, SEL aSelector)
     
     if ( ({ propertyName = [self getterNameFromSelector:aSelector]; propertyName; }) )
     {
-        NSString *className = [UXYInjectioHelper sharedInstance].propertyTypeInfo[typeKey][propertyName];
-        NSString *replaceName = [UXYInjectioHelper sharedInstance].getterSelectorMap[className];
+        NSString *className   = UXYInjectioHelper.sharedInstance.propertyTypeInfo[typeKey][propertyName];
+        NSString *replaceName = UXYInjectioHelper.sharedInstance.getterSelectorMap[className];
         SEL replaceSelector   = NSSelectorFromString(replaceName);
         
         return [_uxyInnerData methodSignatureForSelector:replaceSelector];
@@ -364,20 +362,20 @@ id uxyForwardingTargetForSelectorMethodIMP(id self, SEL _cmd, SEL aSelector)
 - (void)forwardInvocation:(NSInvocation *)anInvocation
 {
     NSString *propertyName = [self setterNameFromSelector:anInvocation.selector];
-    NSString *typeKey      = [[[UXYInjectioHelper sharedInstance] currentObject] uxyInjectioProtocol];
+    NSString *typeKey      = ((NSObject *)UXYInjectioHelper.sharedInstance.currentObject).uxyInjectioProtocol;
     if (propertyName)
     {
-        NSString *className = [UXYInjectioHelper sharedInstance].propertyTypeInfo[typeKey][propertyName];
-        NSString *replaceName = [UXYInjectioHelper sharedInstance].setterSelectorMap[className];
+        NSString *className   = UXYInjectioHelper.sharedInstance.propertyTypeInfo[typeKey][propertyName];
+        NSString *replaceName = UXYInjectioHelper.sharedInstance.setterSelectorMap[className];
         anInvocation.selector = NSSelectorFromString(replaceName);
-        anInvocation.target   = [[UXYInjectioHelper sharedInstance] currentObject];
+        anInvocation.target   = UXYInjectioHelper.sharedInstance.currentObject;
         [anInvocation setArgument:&propertyName atIndex:3];  // self, _cmd, obj, key
         [anInvocation invokeWithTarget:_uxyInnerData];
         
-        if (!_uxyOptimizeStorage)
-        {
-            [_uxyInnerData synchronize];
-        }
+        if (_uxyOptimizeStorage)
+            return;
+        
+        [_uxyInnerData synchronize];
         
         return;
     }
@@ -385,10 +383,10 @@ id uxyForwardingTargetForSelectorMethodIMP(id self, SEL _cmd, SEL aSelector)
     propertyName = [self getterNameFromSelector:anInvocation.selector];
     if (propertyName)
     {
-        NSString *className = [UXYInjectioHelper sharedInstance].propertyTypeInfo[typeKey][propertyName];
-        NSString *replaceName = [UXYInjectioHelper sharedInstance].getterSelectorMap[className];
+        NSString *className   = UXYInjectioHelper.sharedInstance.propertyTypeInfo[typeKey][propertyName];
+        NSString *replaceName = UXYInjectioHelper.sharedInstance.getterSelectorMap[className];
         anInvocation.selector = NSSelectorFromString(replaceName);
-        anInvocation.target   = [[UXYInjectioHelper sharedInstance] currentObject];
+        anInvocation.target   = UXYInjectioHelper.sharedInstance.currentObject;
         [anInvocation setArgument:&propertyName atIndex:2]; // self, _cmd, key
         [anInvocation invokeWithTarget:_uxyInnerData];
         

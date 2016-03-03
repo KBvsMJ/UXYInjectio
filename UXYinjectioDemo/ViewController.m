@@ -76,23 +76,23 @@
 {
     People *people = [[People alloc] init];
     [people bindInjectioWithSuiteName:@"bill"];
-    people.name = @"name";
-    people.age = 10;
-    people.age2 = 20;
-    people.age3 = 30;
-    people.age4 = 40;
-    people.isAlive = YES;
+    people.name     = @"name";
+    people.age      = 10;
+    people.age2     = 20;
+    people.age3     = 30;
+    people.age4     = 40;
+    people.isAlive  = YES;
     people.isAlive2 = YES;
-    people.height = 180.1;
-    people.height2 = 180.2;
-    people.height3 = 180.3;
-    people.num = @9999;
+    people.height   = 180.1;
+    people.height2  = 180.2;
+    people.height3  = 180.3;
+    people.num      = @9999;
     
     Man *man = [[Man alloc] init];
     [man bindInjectioWithSuiteName:@"bill"];
-    man.job = @"develop";
+    man.job       = @"develop";
     man.nicknames = @[@"xiaoming", @"xiaolang"];
-    man.books = @{@"book1" : @"objective-c"};
+    man.books     = @{@"book1" : @"objective-c"};
     
     AppConfig *config = [[AppConfig alloc] init];
     [config bindInjectioWithSuiteName:@"user1"];
@@ -151,17 +151,17 @@
     {
         People *people = [[People alloc] init];
         [people bindInjectioWithSuiteName:[NSString stringWithFormat:@"autoSave_%04d", i]];
-        people.name = @"name";
-        people.age = i;
-        people.age2 = 20;
-        people.age3 = 30;
-        people.age4 = 40;
-        people.isAlive = YES;
+        people.name     = @"name";
+        people.age      = i;
+        people.age2     = 20;
+        people.age3     = 30;
+        people.age4     = 40;
+        people.isAlive  = YES;
         people.isAlive2 = YES;
-        people.height = 180.1;
-        people.height2 = 180.2;
-        people.height3 = 180.3;
-        people.num = @9999;
+        people.height   = 180.1;
+        people.height2  = 180.2;
+        people.height3  = 180.3;
+        people.num      = @9999;
     }
     NSLog(@"Now, you can Enter Background\n");
 }

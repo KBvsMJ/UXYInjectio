@@ -18,11 +18,10 @@
 @property (nonatomic, assign) NSUInteger age2;
 @property (nonatomic, assign) int age3;
 @property (nonatomic, assign) unsigned int age4;
-@property (nonatomic ,assign) BOOL isAlive;
-@property (nonatomic ,assign) bool isAlive2;
+@property (nonatomic, assign) BOOL isAlive;
+@property (nonatomic, assign) bool isAlive2;
 @property (nonatomic, copy) NSString *name;
-@property (nonatomic ,strong) NSNumber *num;
-
+@property (nonatomic, strong) NSNumber *num;
 @end
 
 @interface People : NSObject <PeopleData>
